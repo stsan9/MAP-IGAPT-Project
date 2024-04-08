@@ -17,10 +17,15 @@ class JetData:
         
         # Load data
         self.all_data= JetNet(jet_type= jet_type, data_dir = data_dir, download = True, split = "all",  seed = seed)
-        self.train, self.train_jet = self.all_data.getData(jet_type= jet_type, data_dir = data_dir, download = False, split = "train", seed= seed)
-        self.test, self.test_jet =  self.all_data.getData(jet_type= jet_type, data_dir = data_dir, download = False, split = "test", seed= seed)
-        self.val, self.val_jet = self.all_data.getData(jet_type= jet_type, data_dir = data_dir, download = False, split = "valid", seed= seed)
+        self.full_train, self.train_jet = self.all_data.getData(jet_type= jet_type, data_dir = data_dir, download = False, split = "train", seed= seed)
+        self.full_test, self.test_jet =  self.all_data.getData(jet_type= jet_type, data_dir = data_dir, download = False, split = "test", seed= seed)
+        self.full_val, self.val_jet = self.all_data.getData(jet_type= jet_type, data_dir = data_dir, download = False, split = "valid", seed= seed)
 
+        # Seperate mask
+        self.train, self.train_mask = self.seperate_mask(self.full_train)
+        self.test, self.test_mask = self.seperate_mask(self.full_test)
+        self.val, self.val_mask = self.seperate_mask(self.full_val)
+        
         # Set up normalisations
         if particle_normalisation:
             self._pnorm = normalisations.FeaturewiseLinear(normal=True)
@@ -36,6 +41,9 @@ class JetData:
             self.test_jet = self._jnorm(self.test_jet)
             self.val_jet = self._jnorm(self.val_jet)
     
+    def seperate_mask(self, data):
+        return data[...,:-1], data[...,-1]
+         
     def calibrate_particle_normalisation(self, data):
         return self._pnorm.derive_dataset_features(data)
     
