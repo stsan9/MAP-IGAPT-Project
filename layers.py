@@ -48,9 +48,10 @@ class PMA(nn.Module):
         self.feedforward = nn.LinearNet() # FIXME: THIS IS A PLACEHOLDER FOR THE FEEDFORWARD LAYER
         self.mab = MAB(embed_dims, **mab_args)
         self.S = nn.Parameter(torch.empty(1, seed_count, embed_dims))
+        nn.init.xavier_uniform_(self.S)
     
     def forward(self, X):
-        
+        return self.mab(self.S.repeat(X.size(0), 1, 1), X)
 
 class ISAB(nn.Module):
     def __init__(self, m_induce, embed_dim, **mab_args):
