@@ -39,17 +39,26 @@ class MAB(nn.Module):
             return self.layer_norm(mab_out)
         
         return mab_out
+    
+class PMA(nn.Module):
+    def __init__(self, embed_dims, seed_count, **mab_args):
+        super(PMA, self).__init__()
+        self.seed_count = seed_count
+        
+        self.feedforward = nn.LinearNet() # FIXME: THIS IS A PLACEHOLDER FOR THE FEEDFORWARD LAYER
+        self.mab = MAB(embed_dims, **mab_args)
+        self.S = nn.Parameter(torch.empty(1, seed_count, embed_dims))
+    
+    def forward(self, X):
+        
 
 class ISAB(nn.Module):
-    def __init__(self, m_induce, embed_dim, num_heads, activation_function = torch.softmax, layer_norm = True, dropout = 0.1):
-        assert embed_dim % num_heads == 0, "Embedding dimension must be divisible by number of heads"
-        
+    def __init__(self, m_induce, embed_dim, **mab_args):
         super(ISAB, self).__init__()
-        self.activation_function = activation_function
         
         self.m = m_induce
-        self.mab1 = MAB(embed_dim, num_heads, activation_function, layer_norm, dropout)
-        self.mab2 = MAB(embed_dim, num_heads, activation_function, layer_norm, dropout)
+        self.mab1 = MAB(embed_dim, **mab_args)
+        self.mab2 = MAB(embed_dim, **mab_args)
         self.I = nn.Parameter(torch.randn(self.m, embed_dim))
     
     def forward(self, X):
