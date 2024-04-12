@@ -77,4 +77,3 @@ class IPAB(nn.Module):
     def forward(self, X, Z):
         Z = self.mab1(Z.unsqueeze(1), X)
         return self.mab2(X, Z), Z.squeeze(1)
-
