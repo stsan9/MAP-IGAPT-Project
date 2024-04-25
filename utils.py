@@ -1,4 +1,7 @@
 from jetnet.datasets import JetNet, normalisations
+from torch.utils.data import DataLoader
+from torch.distributions.normal import Normal
+import torch
 
 class JetData:
     def __init__(self, jet_type= ["g","q"], data_dir = "./data", particle_normalisation = True, jet_normalisation = True, seed = 42):
@@ -56,7 +59,55 @@ class JetData:
     def normalize_jet(self, data):
         return self._jnorm(data)
     
+class SimpleData:
+    def __init__(self, jet_type= ["g","q"], data_dir = "./data", batch_size = 0):
+        '''
+        jet_type: list of strings
+        data_dir: string
+        '''
+        # Store data
+        self.data_dir = data_dir
+        self.jet_type = jet_type
         
+
+        #define feature maxes and add a [1] for the mask
+        feature_maxes = JetNet.fpnd_norm.feature_maxes
+        feature_maxes += [1]
+        
+        # Set up normalisations
+        self._pnorm = normalisations.FeaturewiseLinearBounded(
+            feature_norms=1.0,
+            feature_shifts=[0.0, 0.0, -0.5, -0.5],
+            feature_maxes=feature_maxes
+        )
+        
+        self._jnorm = normalisations.FeaturewiseLinear(feature_scales=1.0/30.0)
+
+        data_args = {
+            "jet_type": jet_type,
+            "data_dir": data_dir,
+            "num_particles": 30,
+            "particle_features": JetNet.ALL_PARTICLE_FEATURES,
+            "jet_features": "num_particles",
+            "particle_normalisation": self._pnorm,
+            "jet_normalisation": self._jnorm,
+            "split_fraction": [0.7, 0.3, 0]
+        }
+        
+        # Load data
+        unloaded_train = JetNet(**data_args, split = "train")
+        self.train = DataLoader(unloaded_train, shuffle = True, batch_size = batch_size, pin_memory= True)
+        
+        unloaded_test = JetNet(**data_args, split = "val")
+        self.test = DataLoader(unloaded_test, batch_size = batch_size, pin_memory= True)
+        
+def get_noise(init_noise_dim, num_samples, num_particles, noise_std, device):
+    dist = Normal(torch.tensor(0.0).to(device), torch.tensor(noise_std).to(device))
+    
+    noise = dist.sample((num_samples, num_particles, init_noise_dim))
+    
+    return noise
+
 # Test the data
 if __name__ == "__main__":
     import numpy as np

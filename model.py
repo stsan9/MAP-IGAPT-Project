@@ -1,7 +1,7 @@
 import torch
 from torch import nn
 import torch.nn.functional as F
-from . import layers, preprocessing
+from . import layers, utils
 
 class Generator(nn.Module):
     def __init__(self, 
@@ -103,7 +103,8 @@ class Discriminator(nn.Module):
                 input_size = embed_dim,
                 output_size = 1,
                 activation_function = lambda x: x,
-                layer_norm = False
+                layer_norm = False,
+                final_linear= True
             )
     
     def forward(self, x, mask):

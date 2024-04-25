@@ -1,0 +1,15 @@
+{
+    "jets": "g",
+    "data_dir": "",
+    "batch_size": 0,
+    "init_noise_dim": 8,    
+    "gen_out_size": 3,
+    "gen_sabs": 4,
+    "disc_sabs": 2,
+    "num_ise": 10,
+    "num_heads": 4,
+    "embed_dim": 64,
+    "disc_noise_feat_dim": 8,
+    "global_noise_init_dim": 8,
+    "global_noise_feat_dim": 8,
+}
