@@ -1,6 +1,9 @@
 {
+    "name": "igaptmodel",
+    "num_particles": 30,
     "jets": "g",
-    "data_dir": "",
+    "data_dir": ".\\data",
+    "output_dir": ".\\output",
     "batch_size": 512,
     "init_noise_dim": 8,    
     "gen_out_size": 3,
@@ -13,8 +16,16 @@
     "global_noise_init_dim": 8,
     "global_noise_feat_dim": 8,
     "optimizer": "rmsprop",
-    "start_epoch": 0, //the epoch to start training from (only applies for loading)
-    "epochs": 6000, //number of epochs to train for
-    "save_freq": 5, //how often to save the model
-    "eval_freq": 5, //how often to evaluate the model
+    "start_epoch": 0, 
+    "epochs": 6000, 
+    "save_freq": 5, 
+    "eval_freq": 5,
+    "gen_out_dim": 3,
+    "noise_dim": 8,
+    "global_noise_dim": 8,
+    "global_feat_dim": 8,
+    "ipab_layers_gen": 4,
+    "ipab_layers_disc": 2,
+    "lrs": [0.5e-4, 1.5e-4],
+    "betas": [0.9, 0.999]
 }

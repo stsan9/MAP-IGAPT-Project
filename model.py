@@ -1,48 +1,31 @@
 import torch
 from torch import nn
 import torch.nn.functional as F
-from . import layers, utils
+import layers
 
 class Generator(nn.Module):
-    def __init__(self, 
-                 particle_count,
-                 output_dim, 
-                 embed_dim = 32,
-                 noise_dim = 8,
-                 global_noise_dim = 0,
-                 global_feat_dim = 0,
-                 num_ipabs = 2,
-                 learnable_noise = False, 
-                 residual = False,
-                 global_net_layers = [],
-                 output_fc_layers = [],
-                 **mab_args):
+    def __init__(self, settings):
         super(Generator, self).__init__()
-        
-        
-        if learnable_noise:
-           self.mu = nn.Parameter(torch.randn(particle_count , embed_dim))
-           self.std = nn.Parameter(torch.randn(particle_count, embed_dim))
+        embed_dim = settings["embed_dim"]
         
         self.noise_net = layers.LinearNet(
-            layers=[], input_size=noise_dim, output_size=embed_dim
+            layers=[], input_size=settings["noise_dim"], output_size=embed_dim
         )
         
         self.global_net = layers.LinearNet(
-            layers=global_net_layers, input_size=global_noise_dim, output_size=global_feat_dim
+            layers=[], input_size=settings["global_noise_dim"], output_size=settings["global_feat_dim"]
         )
         
         self.ipabs = nn.ModuleList()
         
-        for _  in range(num_ipabs):
-            self.ipabs.append(layers.IPAB(embed_dim, **mab_args))
+        for _  in range(settings["ipab_layers_gen"]):
+            self.ipabs.append(layers.IPAB(settings))
         
         self.output_fc = layers.LinearNet(
-            output_fc_layers,
+            layers = [],
             input_size = embed_dim,
-            output_size = output_dim,
-            activation_function = lambda x: x,
-            layer_norm = False
+            output_size = settings["gen_out_dim"],
+            final_linear= True,
         )
     
     def forward(self, x, mask, z):
@@ -59,52 +42,31 @@ class Generator(nn.Module):
         
         return x
     
-    def sample_noise(self, batch_size):
-        cov = torch.eye(self.std.shape[1]).repeat(self.num_particles, 1, 1).to(
-                self.std.device
-            ) * (self.std**2).unsqueeze(2)
-        
-        mvn = torch.distributions.MultiVariateNormal(self.mu, cov)
-        
-        return mvn.rsample((batch_size,))
-
 class Discriminator(nn.Module):
-    def __init__(self,
-                    particle_count,
-                    input_dim,
-                    embed_dim = 32,
-                    cond_feat_dim = 8,
-                    global_feat_dim = 0,
-                    num_ipabs = 2,
-                    global_net_layers = [],
-                    cond_net_layers = [],
-                    output_fc_layers = [],
-                    residual = False,
-                    **mab_args):
+    def __init__(self, settings, residual = False):
             super(Discriminator, self).__init__()
             self.residual = residual
+            embed_dim = settings["embed_dim"]
             
             self.cond_net = layers.LinearNet(
-                layers = cond_net_layers, input_size = 2*embed_dim, output_size = embed_dim
+                layers = [], input_size = 2*embed_dim, output_size = embed_dim
             )
             
             self.input_net = layers.LinearNet(
-                layers=[], input_size=input_dim, output_size=embed_dim
+                layers=[], input_size=settings["gen_out_dim"], output_size=embed_dim
             )
 
             self.ipabs = nn.ModuleList()
             
-            for _ in range(num_ipabs):
-                self.ipabs.append(layers.IPAB(embed_dim, **mab_args))
+            for _ in range(settings["ipab_layers_disc"]):
+                self.ipabs.append(layers.IPAB(settings))
             
-            self.pma = layers.PMA(num_seeds=1, embed_dim=embed_dim, **mab_args)
+            self.pma = layers.PMA(settings, num_seeds=1)
             
             self.output_fc = layers.LinearNet(
-                output_fc_layers,
+                layers = [],
                 input_size = embed_dim,
                 output_size = 1,
-                activation_function = lambda x: x,
-                layer_norm = False,
                 final_linear= True
             )
     

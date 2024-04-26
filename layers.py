@@ -5,15 +5,17 @@ import torch.nn.functional as F
 
 
 class LinearNet(nn.Module):
-    def __init__(self, layer_sizes=[], leaky_relu_alpha = 0.2, dropout_p = 0, final_linear = False):
+    def __init__(self, input_size, output_size, layers=[], leaky_relu_alpha = 0.2, dropout_p = 0, final_linear = False):
         super(LinearNet, self).__init__()
+        
+        layers = []
         self.final_linear = final_linear
         self.leaky_relu_alpha = leaky_relu_alpha
         self.dropout = nn.Dropout(p=dropout_p)
         
         self.net = nn.ModuleList()
-        for i in range(len(layer_sizes) - 1):
-            linear = nn.Linear(layer_sizes[i], layer_sizes[i + 1])
+        for i in range(len(layers) - 1):
+            linear = nn.Linear(layers[i], layers[i + 1])
             
             self.net.append(linear)
         
@@ -40,16 +42,18 @@ class Attention(nn.Module):
         return torch.matmul(logits, V)
 
 class MAB(nn.Module):
-    def __init__(self, embed_dim, num_heads, ff_layers = None, final_linear = True, activation_function = torch.softmax, layer_norm = False, dropout = 0.1):
-        assert embed_dim % num_heads == 0, "Embedding dimension must be divisible by number of heads"
+    def __init__(self, settings, ff_layers = [], final_linear = True, activation_function = torch.softmax, layer_norm = False, dropout = 0.1):
+        assert settings["embed_dim"] % settings["num_heads"] == 0, "Embedding dimension must be divisible by number of heads"
         
         super(MAB, self).__init__()
+        embed_dim = settings["embed_dim"]
+        num_heads = settings["num_heads"]
         self.activation_function = activation_function
         
         self.attention = nn.MultiheadAttention(embed_dim=embed_dim, num_heads=num_heads, batch_first=True)
         self.layer_norm = nn.LayerNorm(embed_dim) if layer_norm else None
         
-        self.feedforward = LinearNet([embed_dim] + ff_layers + [embed_dim], final_linear=final_linear) 
+        self.feedforward = LinearNet(embed_dim, embed_dim, ff_layers, final_linear=final_linear) 
         self.dropout = nn.Dropout(p=dropout)
     
     def forward(self, X, Y):
@@ -69,12 +73,12 @@ class MAB(nn.Module):
         return mab_out
     
 class PMA(nn.Module):
-    def __init__(self, embed_dims, seed_count, **mab_args):
+    def __init__(self, settings, num_seeds):
         super(PMA, self).__init__()
-        self.seed_count = seed_count
+        self.seed_count = num_seeds
         
-        self.mab = MAB(embed_dims, **mab_args)
-        self.S = nn.Parameter(torch.empty(1, seed_count, embed_dims))
+        self.mab = MAB(settings)
+        self.S = nn.Parameter(torch.empty(1, num_seeds, settings["embed_dim"]))
         nn.init.xavier_uniform_(self.S)
     
     def forward(self, X):
@@ -94,12 +98,12 @@ class ISAB(nn.Module):
         return self.mab2(X, H)
 
 class IPAB(nn.Module):
-    def __init__(self, embed_dim, **mab_args):
+    def __init__(self, settings):
         super(IPAB, self).__init__()
-        self.embed_dim = embed_dim
+        self.embed_dim = settings["embed_dim"]
         
-        self.mab1 = MAB(embed_dim, **mab_args) 
-        self.mab2 = MAB(embed_dim, **mab_args)
+        self.mab1 = MAB(settings) 
+        self.mab2 = MAB(settings)
     
     def forward(self, X, Z):
         Z = self.mab1(Z.unsqueeze(1), X)

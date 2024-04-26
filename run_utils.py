@@ -4,7 +4,7 @@ import jetnet
 from torch.utils.data import DataLoader
 from torch.distributions.normal import Normal
 import torch
-from . import plotting
+import plotting
 
 class JetData:
     def __init__(self, jet_type= ["g","q"], data_dir = "./data", particle_normalisation = True, jet_normalisation = True, seed = 42):
@@ -22,7 +22,7 @@ class JetData:
         self.jet_normalisation = jet_normalisation
         
         # Load data
-        self.all_data= JetNet(jet_type= jet_type, data_dir = data_dir, download = True, split = "all",  seed = seed)
+        self.all_data= JetNet(jet_type = jet_type, data_dir = data_dir, download = True, split = "all",  seed = seed)
         self.full_train, self.train_jet = self.all_data.getData(jet_type= jet_type, data_dir = data_dir, download = False, split = "train", seed= seed)
         self.full_test, self.test_jet =  self.all_data.getData(jet_type= jet_type, data_dir = data_dir, download = False, split = "test", seed= seed)
         self.full_val, self.val_jet = self.all_data.getData(jet_type= jet_type, data_dir = data_dir, download = False, split = "valid", seed= seed)
@@ -101,7 +101,7 @@ class SimpleData:
         unloaded_train = JetNet(**data_args, split = "train")
         self.train = DataLoader(unloaded_train, shuffle = True, batch_size = batch_size, pin_memory= True)
         
-        self.test = JetNet(**data_args, split = "val")
+        self.test = JetNet(**data_args, split = "valid")
         # self.test = DataLoader(unloaded_test, batch_size = batch_size, pin_memory= True)
         
 def get_noise(settings, device):
@@ -159,7 +159,7 @@ def losses():
     
     return losses, best_epoch
 
-def eval_save_plot(settings, X_test, gen, disc, G_optimizer, D_optimizer, losses, epoch, best_epoch):
+def eval_save_plot(settings, X_test, gen, disc, G_optimizer, D_optimizer, losses, epoch):
     gen.eval()
     disc.eval()
     save_models(settings, gen, disc, G_optimizer, D_optimizer, epoch)
@@ -177,7 +177,7 @@ def eval_save_plot(settings, X_test, gen, disc, G_optimizer, D_optimizer, losses
     
     gen_jets = jetnet.utils.gen_jet_corrections(
         X_test.particle_normalisation(gen_output, inverse = True),
-        ret_mask_seperate = True
+        ret_mask_seperate = True,
         zero_mask_particles = True,
     )
     
@@ -295,11 +295,11 @@ def gen_multi_batch(
     return gen_data
 
 def save_models(settings, gen, disc, G_optimizer, D_optimizer, epoch):
-    torch.save(disc.state_dict(), settings["models_path"]+ "/D_" + str(epoch) + ".pt")
-    torch.save(gen.state_dict(), settings["models_path"] + "/G_" + str(epoch) + ".pt")
+    torch.save(disc.state_dict(), settings["output_dir"]+ f"\\models\\{settings["name"]}\\D_" + str(epoch) + ".pt")
+    torch.save(gen.state_dict(), settings["output_dir"] + f"\\models\\{settings["name"]}\\G_" + str(epoch) + ".pt")
 
-    torch.save(D_optimizer.state_dict(), settings["models_path"] + "/D_optim_" + str(epoch) + ".pt")
-    torch.save(G_optimizer.state_dict(), settings["models_path"] + "/G_optim_" + str(epoch) + ".pt")
+    torch.save(D_optimizer.state_dict(), settings["output_dir"]+ f"\\models\\{settings["name"]}\\D_optim" + str(epoch))
+    torch.save(G_optimizer.state_dict(), settings["output_dir"]+ f"\\models\\{settings["name"]}\\G_optim" + str(epoch))
 # TODO: redo data tests to work with simpledata
 if __name__ == "__main__":
     import numpy as np

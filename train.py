@@ -1,6 +1,8 @@
 import torch
 import json
-from . import utils, model
+import run_utils
+import model
+import os
 
 BCE = torch.nn.BCELoss()
 MSE = torch.nn.MSELoss()
@@ -9,22 +11,30 @@ def main():
     # Load settings
     with open("settings.json") as f:
         settings = json.load(f)
+   
+    # Make necessary directories
+    try:
+        os.mkdir(settings["output_dir"])
+        os.mkdir(settings["output_dir"]+"\\models")
+        os.mkdir(settings["output_dir"]+f"\\models\\{settings["name"]}")
+    except FileExistsError:
+        pass
+        
     
     device = "cuda" if torch.cuda.is_available() else "cpu"
     settings["device"] = device
     torch.autograd.set_detect_anomaly(False)
     
     torch.manual_seed(0)
-    data = utils.SimpleData(jet_type="g", data_dir="./data", batch_size=0) #TODO: implement reading settings
+    data = run_utils.SimpleData(jet_type=settings["jets"], data_dir = settings["data_dir"], batch_size=settings["batch_size"])
     X_train = data.train
     X_test = data.test
+
+    gen, disc = model.Generator(settings), model.Discriminator(settings)
     
-    # TODO: need to seperate disc and gen settings
-    gen, disc = model.Generator(**settings), model.Discriminator(**settings)
+    G_optimizer, D_optimizer = run_utils.optimizers(gen, disc, settings["optimizer"], settings["lrs"], settings["betas"])
     
-    G_optimizer, D_optimizer = utils.optimizers(gen, disc, settings["optimizer"], settings["lrs"], settings["betas"])
-    
-    losses, best_epoch = utils.losses()
+    losses, best_epoch = run_utils.losses()
     
     train(
         settings,
@@ -35,7 +45,6 @@ def main():
         G_optimizer,
         D_optimizer,
         losses,
-        best_epoch,
     )
 
 def train(
@@ -47,18 +56,18 @@ def train(
     G_optimizer,
     D_optimizer,
     losses,
-    best_epoch,
 ):
     data_length = len(X_train)
     
     if settings["start_epoch"] == 0:
-        utils.eval_save_plot(
+        run_utils.eval_save_plot(
             settings,
             X_test,
             gen,
             disc,
+            G_optimizer,
+            D_optimizer,
             losses,
-            best_epoch,
             0,
         )
     
@@ -111,17 +120,18 @@ def train(
         losses["G"].append(epoch_loss["G"]/data_length)
         
         if epoch % settings["eval_freq"] == 0:
-            utils.eval_save_plot(
+            run_utils.eval_save_plot(
                 settings,
                 X_test,
                 gen,
                 disc,
+                G_optimizer,
+                D_optimizer,
                 losses,
-                best_epoch,
-                epoch,
+                epoch
             )
         elif epoch % settings["save_freq"] == 0:
-            utils.save_models(settings, gen, disc, D_optimizer, G_optimizer, epoch)
+            run_utils.save_models(settings, gen, disc, D_optimizer, G_optimizer, epoch)
        
         
 
@@ -139,7 +149,7 @@ def train_G(
     device = next(gen.parameters()).device
     labels = labels.to(device)
     
-    noise, point_noise = utils.get_noise(settings, device)
+    noise, point_noise = run_utils.get_noise(settings, device)
     
     gen_data = gen(noise, labels)
     
@@ -171,7 +181,7 @@ def train_D(
     device = next(gen.parameters()).device
     labels = labels.to(device)
     
-    noise, point_noise = utils.get_noise(settings, device)
+    noise, point_noise = run_utils.get_noise(settings, device)
     
     gen_data = gen(noise, labels)
     
@@ -221,3 +231,6 @@ def calc_D_loss(loss, data, real_output, fake_output, run_batch_size):
              "Df": D_fake_loss.item(), 
              "D": D_real_loss.item() + D_fake_loss.item()}
     )
+    
+if __name__ == "__main__":
+    main()
