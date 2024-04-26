@@ -1,7 +1,10 @@
 from jetnet.datasets import JetNet, normalisations
+from jetnet import evaluation
+import jetnet
 from torch.utils.data import DataLoader
 from torch.distributions.normal import Normal
 import torch
+from . import plotting
 
 class JetData:
     def __init__(self, jet_type= ["g","q"], data_dir = "./data", particle_normalisation = True, jet_normalisation = True, seed = 42):
@@ -98,17 +101,206 @@ class SimpleData:
         unloaded_train = JetNet(**data_args, split = "train")
         self.train = DataLoader(unloaded_train, shuffle = True, batch_size = batch_size, pin_memory= True)
         
-        unloaded_test = JetNet(**data_args, split = "val")
-        self.test = DataLoader(unloaded_test, batch_size = batch_size, pin_memory= True)
+        self.test = JetNet(**data_args, split = "val")
+        # self.test = DataLoader(unloaded_test, batch_size = batch_size, pin_memory= True)
         
-def get_noise(init_noise_dim, num_samples, num_particles, noise_std, device):
-    dist = Normal(torch.tensor(0.0).to(device), torch.tensor(noise_std).to(device))
+def get_noise(settings, device):
+    dist = Normal(torch.tensor(0.0).to(device), torch.tensor(settings["noise_std"]).to(device))
     
-    noise = dist.sample((num_samples, num_particles, init_noise_dim))
+    noise = dist.sample((settings["num_samples"], settings["num_particles"], settings["init_noise_dim"]))
     
     return noise
 
-# Test the data
+def optimizers(generator, discriminator, optimizer = "rmsprop", lrs = [1e-5, 3e-5], betas = [0.9, 0.999]):
+    """This function sets up and returns the optimizers for the generator and discriminator.
+
+    Args:
+        generator (nn.model): the generator of the model to be trained
+        discriminator (_type_): the discriminator of the model to be trained
+        optimizer (str, optional): type of optimizer to be used. Defaults to "rmsprop".
+        lrs (list, optional): learning rates for the generator and discriminator respectively. Defaults to [1e-5, 3e-5].
+        beta1 (float, optional): beta1 parameter for the adam optimizer. Defaults to 0.9.
+        beta2 (float, optional): beta2 parameter for the adam optimizer. Defaults to 0.999.
+    """    
+    G_params = generator.parameters()
+    D_params = discriminator.parameters()
+    G_lr, D_lr = lrs
+    
+    if optimizer == "adam":
+        G_optimizer = torch.optim.Adam(G_params, lr=G_lr, betas=betas)
+        D_optimizer = torch.optim.Adam(D_params, lr=D_lr, betas=betas)
+    elif optimizer == "rmsprop":
+        G_optimizer = torch.optim.RMSprop(G_params, lr=G_lr)
+        D_optimizer = torch.optim.RMSprop(D_params, lr=D_lr)
+    elif optimizer == "adadelta":
+        G_optimizer = torch.optim.Adadelta(G_params, lr=G_lr)
+        D_optimizer = torch.optim.Adadelta(D_params, lr=D_lr)
+    else:
+        raise NotImplementedError("Optimizer not implemented")
+    
+    return G_optimizer, D_optimizer
+
+def losses():
+    #TODO: set up loading
+    losses = {}
+    
+    keys = ["D", "Dr", "Df", "G"]
+    
+    eval_keys = ["w1p", "w1m"]
+    
+    multi_value_keys = ["w1p", "w1m"]
+    
+    keys += eval_keys
+    
+    for key in keys:
+        losses[key] = []
+    
+    best_epoch = [[0, 10.0]]
+    
+    return losses, best_epoch
+
+def eval_save_plot(settings, X_test, gen, disc, G_optimizer, D_optimizer, losses, epoch, best_epoch):
+    gen.eval()
+    disc.eval()
+    save_models(settings, gen, disc, G_optimizer, D_optimizer, epoch)
+    
+    real_jets = jetnet.utils.gen_jet_corrections(
+        X_test.particle_normalisation(X_test.particle_data[:50000], inverse = True),
+        zero_mask_particles = False,
+        ret_mask_seperate = True,
+        zero_neg_pt = False
+    )
+    
+    # TODO: FIX THISSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
+    
+    gen_output = gen_multi_batch(settings, gen, out_device="cpu", detach=True)
+    
+    gen_jets = jetnet.utils.gen_jet_corrections(
+        X_test.particle_normalisation(gen_output, inverse = True),
+        ret_mask_seperate = True
+        zero_mask_particles = True,
+    )
+    
+    gen_mask = gen_jets[1]
+    gen_jets = gen_jets[0]
+    real_mask = real_jets[1]
+    real_jets = real_jets[0]
+    
+    gen_jets = gen_jets.numpy()
+    gen_mask = gen_mask.numpy()
+    
+    # Perform model evaluation
+    w1pm, w1pstd = evaluation.w1p(
+        real_jets,
+        gen_jets,
+        exclude_zeros=True,
+        num_eval_samples=50000,
+        num_batches=real_jets.shape[0] // 50000,
+        average_over_features=False,
+        return_std=True,
+    )
+    losses["w1p"].append(np.concatenate((w1pm, w1pstd)))
+    
+    w1mm, w1mstd = evaluation.w1m(
+        real_jets,
+        gen_jets,
+        num_eval_samples=50000,
+        num_batches=real_jets.shape[0] // 50000,
+        return_std=True,
+    )
+    losses["w1m"].append(np.array([w1mm, w1mstd]))
+    
+    # Save losses
+    for key in losses:
+        np.savetxt(f"{settings["losses_path"]}/{key}.txt", losses[key])
+    
+    # Make necessary plots
+    real_masses = jetnet.utils.jet_features(real_jets)["mass"]
+    gen_masses = jetnet.utils.jet_features(gen_jets)["mass"]
+    
+    plotting.plot_part_feats_jet_mass(
+        "g", #TODO: implement other jet types
+        real_jets,
+        gen_jets,
+        real_mask,
+        gen_mask,
+        real_masses,
+        gen_masses,
+        name= f"{epoch}pm",
+        figs_path=settings["figs_path"],
+        losses=losses,
+        num_particles=settings["num_particles"],
+        coords=settings["coords"],
+        show=False,
+    )
+    
+    if len(losses["G"]) > 1:
+        plotting.plot_losses(losses, loss=settings["loss"], name= f"{epoch}pm", losses_path=settings["losses_path"], show=False)
+
+        try:
+            remove(settings["losses_path"] + "/" + str(epoch - settings["save_epochs"]) + ".pdf")
+        except:
+            print("Couldn't remove previous loss curves")
+
+    if len(losses["w1p"]) > 1:
+        plotting.plot_eval(
+            losses,
+            epoch,
+            settings["save_epochs"],
+            coords=settings["coords"],
+            name=f"{epoch}pm" + "_eval",
+            losses_path=settings["losses_path"],
+            show=False,
+        )
+
+        try:
+            remove(settings["losses_path"] + "/" + str(epoch - settings["save_epochs"]) + ".pdf")
+        except:
+            print("Couldn't remove previous eval curves")
+    
+
+def gen_multi_batch(
+    settings,
+    gen,
+    out_device: str = "cpu",
+    detach: bool = False,
+    noise = None,
+    labels = None,
+):
+    assert out_device == "cuda" or out_device == "cpu", "Invalid device type"
+
+    assert labels.shape[0] == settings["num_samples"], "number of labels doesn't match num_samples"
+    labels = torch.Tensor(labels)
+
+    gen_data = None
+    device = next(gen.parameters()).device
+    labels = labels.to(device)
+
+    for i in tqdm(range((settings["num_samples"] // settings["batch_size"]) + 1), desc="Generating jets"):
+        num_samples_in_batch = min(settings["batch_size"], settings["num_samples"] - (i * settings["batch_size"]))
+
+        if num_samples_in_batch > 0:
+    
+            noise, point_noise = get_noise(settings, device)
+    
+            gen_temp = gen(noise, labels)
+    
+            if detach:
+                gen_temp = gen_temp.detach()
+
+            gen_temp = gen_temp.to(out_device)
+
+        gen_data = gen_temp if i == 0 else torch.cat((gen_data, gen_temp), axis=0)
+
+    return gen_data
+
+def save_models(settings, gen, disc, G_optimizer, D_optimizer, epoch):
+    torch.save(disc.state_dict(), settings["models_path"]+ "/D_" + str(epoch) + ".pt")
+    torch.save(gen.state_dict(), settings["models_path"] + "/G_" + str(epoch) + ".pt")
+
+    torch.save(D_optimizer.state_dict(), settings["models_path"] + "/D_optim_" + str(epoch) + ".pt")
+    torch.save(G_optimizer.state_dict(), settings["models_path"] + "/G_optim_" + str(epoch) + ".pt")
+# TODO: redo data tests to work with simpledata
 if __name__ == "__main__":
     import numpy as np
     

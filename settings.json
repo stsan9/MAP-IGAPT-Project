@@ -1,7 +1,7 @@
 {
     "jets": "g",
     "data_dir": "",
-    "batch_size": 0,
+    "batch_size": 512,
     "init_noise_dim": 8,    
     "gen_out_size": 3,
     "gen_sabs": 4,
@@ -12,4 +12,9 @@
     "disc_noise_feat_dim": 8,
     "global_noise_init_dim": 8,
     "global_noise_feat_dim": 8,
+    "optimizer": "rmsprop",
+    "start_epoch": 0, //the epoch to start training from (only applies for loading)
+    "epochs": 6000, //number of epochs to train for
+    "save_freq": 5, //how often to save the model
+    "eval_freq": 5, //how often to evaluate the model
 }

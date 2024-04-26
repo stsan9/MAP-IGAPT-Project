@@ -19,6 +19,7 @@ class Generator(nn.Module):
                  **mab_args):
         super(Generator, self).__init__()
         
+        
         if learnable_noise:
            self.mu = nn.Parameter(torch.randn(particle_count , embed_dim))
            self.std = nn.Parameter(torch.randn(particle_count, embed_dim))
@@ -28,7 +29,7 @@ class Generator(nn.Module):
         )
         
         self.global_net = layers.LinearNet(
-            layers=global_net_layers, input_size=global_noise_dim, output_size=embed_dim
+            layers=global_net_layers, input_size=global_noise_dim, output_size=global_feat_dim
         )
         
         self.ipabs = nn.ModuleList()
