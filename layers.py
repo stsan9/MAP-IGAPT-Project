@@ -8,7 +8,7 @@ class LinearNet(nn.Module):
     def __init__(self, input_size, output_size, layers=[], leaky_relu_alpha = 0.2, dropout_p = 0, final_linear = False):
         super(LinearNet, self).__init__()
         
-        layers = []
+        layers = [input_size] + layers + [output_size]
         self.final_linear = final_linear
         self.leaky_relu_alpha = leaky_relu_alpha
         self.dropout = nn.Dropout(p=dropout_p)
@@ -105,7 +105,7 @@ class IPAB(nn.Module):
         self.mab1 = MAB(settings) 
         self.mab2 = MAB(settings)
     
-    def forward(self, X, Z):
+    def forward(self, X, mask, Z):
         Z = self.mab1(Z.unsqueeze(1), X)
         return self.mab2(X, Z), Z.squeeze(1)
 

@@ -5,6 +5,7 @@ from torch.utils.data import DataLoader
 from torch.distributions.normal import Normal
 import torch
 import plotting
+from tqdm import tqdm
 
 class JetData:
     def __init__(self, jet_type= ["g","q"], data_dir = "./data", particle_normalisation = True, jet_normalisation = True, seed = 42):
@@ -104,8 +105,8 @@ class SimpleData:
         self.test = JetNet(**data_args, split = "valid")
         # self.test = DataLoader(unloaded_test, batch_size = batch_size, pin_memory= True)
         
-def get_noise(settings, device):
-    dist = Normal(torch.tensor(0.0).to(device), torch.tensor(settings["noise_std"]).to(device))
+def get_noise(settings, device, noise_std = 0.2):
+    dist = Normal(torch.tensor(0.0).to(device), torch.tensor(noise_std).to(device))
     
     noise = dist.sample((settings["num_samples"], settings["num_particles"], settings["init_noise_dim"]))
     
@@ -165,19 +166,19 @@ def eval_save_plot(settings, X_test, gen, disc, G_optimizer, D_optimizer, losses
     save_models(settings, gen, disc, G_optimizer, D_optimizer, epoch)
     
     real_jets = jetnet.utils.gen_jet_corrections(
-        X_test.particle_normalisation(X_test.particle_data[:50000], inverse = True),
+        X_test.particle_normalisation(X_test.particle_data[:settings["num_samples"]], inverse = True),
         zero_mask_particles = False,
-        ret_mask_seperate = True,
+        ret_mask_separate = True,
         zero_neg_pt = False
     )
     
     # TODO: FIX THISSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
     
-    gen_output = gen_multi_batch(settings, gen, out_device="cpu", detach=True)
+    gen_output = gen_multi_batch(settings, gen, out_device="cpu", detach=True, labels = X_test.jet_data[:settings["num_samples"]])
     
     gen_jets = jetnet.utils.gen_jet_corrections(
         X_test.particle_normalisation(gen_output, inverse = True),
-        ret_mask_seperate = True,
+        ret_mask_separate = True,
         zero_mask_particles = True,
     )
     
@@ -194,8 +195,8 @@ def eval_save_plot(settings, X_test, gen, disc, G_optimizer, D_optimizer, losses
         real_jets,
         gen_jets,
         exclude_zeros=True,
-        num_eval_samples=50000,
-        num_batches=real_jets.shape[0] // 50000,
+        num_eval_samples=settings["num_samples"],
+        num_batches=real_jets.shape[0] // settings["num_samples"],
         average_over_features=False,
         return_std=True,
     )
@@ -204,8 +205,8 @@ def eval_save_plot(settings, X_test, gen, disc, G_optimizer, D_optimizer, losses
     w1mm, w1mstd = evaluation.w1m(
         real_jets,
         gen_jets,
-        num_eval_samples=50000,
-        num_batches=real_jets.shape[0] // 50000,
+        num_eval_samples=settings["num_samples"],
+        num_batches=real_jets.shape[0] // settings["num_samples"],
         return_std=True,
     )
     losses["w1m"].append(np.array([w1mm, w1mstd]))
@@ -281,9 +282,13 @@ def gen_multi_batch(
 
         if num_samples_in_batch > 0:
     
-            noise, point_noise = get_noise(settings, device)
+            noise = get_noise(settings, device)
+
+            global_noise = (
+                torch.randn(settings["num_samples"], settings["global_noise_dim"]).to(device)
+            )
     
-            gen_temp = gen(noise, labels)
+            gen_temp = gen(noise, labels, global_noise)
     
             if detach:
                 gen_temp = gen_temp.detach()

@@ -6,14 +6,18 @@ import layers
 class Generator(nn.Module):
     def __init__(self, settings):
         super(Generator, self).__init__()
+        self.residual = settings["residual"]
         embed_dim = settings["embed_dim"]
         
         self.noise_net = layers.LinearNet(
             layers=[], input_size=settings["noise_dim"], output_size=embed_dim
         )
         
+        # self.global_net = layers.LinearNet(
+        #     layers=[], input_size=settings["global_noise_dim"], output_size=settings["global_feat_dim"]
+        # )
         self.global_net = layers.LinearNet(
-            layers=[], input_size=settings["global_noise_dim"], output_size=settings["global_feat_dim"]
+            layers=[], input_size=settings["global_noise_dim"], output_size=embed_dim
         )
         
         self.ipabs = nn.ModuleList()
