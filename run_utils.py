@@ -88,17 +88,29 @@ class SimpleData:
         )
         
         self._jnorm = normalisations.FeaturewiseLinear(feature_scales=1.0/30.0)
-
-        data_args = {
-            "jet_type": jet_type,
-            "data_dir": data_dir,
-            "num_particles": 30,
-            "particle_features": JetNet.ALL_PARTICLE_FEATURES,
-            "jet_features": "num_particles",
-            "particle_normalisation": self._pnorm,
-            "jet_normalisation": self._jnorm,
-            "split_fraction": [0.7, 0.3, 0]
-        }
+        
+        try:
+            data_args = {
+                "jet_type": jet_type,
+                "data_dir": data_dir,
+                "num_particles": 30,
+                "particle_features": JetNet.ALL_PARTICLE_FEATURES,
+                "jet_features": "num_particles",
+                "particle_normalisation": self._pnorm,
+                "jet_normalisation": self._jnorm,
+                "split_fraction": [0.7, 0.3, 0]
+            }
+        except AttributeError:
+            data_args = {
+                "jet_type": jet_type,
+                "data_dir": data_dir,
+                "num_particles": 30,
+                "particle_features": JetNet.all_particle_features,
+                "jet_features": "num_particles",
+                "particle_normalisation": self._pnorm,
+                "jet_normalisation": self._jnorm,
+                "split_fraction": [0.7, 0.3, 0]
+            }
         
         # Load data
         unloaded_train = JetNet(**data_args, split = "train")
@@ -174,7 +186,6 @@ def eval_save_plot(settings, X_test, gen, disc, G_optimizer, D_optimizer, losses
         zero_neg_pt = False
     )
     
-    # TODO: FIX THISSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
     
     gen_output = gen_multi_batch(settings, gen, out_device="cpu", detach=True, labels = X_test.jet_data[:settings["num_samples"]])
     
@@ -193,14 +204,26 @@ def eval_save_plot(settings, X_test, gen, disc, G_optimizer, D_optimizer, losses
     gen_mask = gen_mask.numpy()
     
     # Perform model evaluation
-    w1pm, w1pstd = evaluation.w1p(
-        real_jets,
-        gen_jets,
-        exclude_zeros=True,
-        num_eval_samples=settings["num_samples"],
-        num_batches=real_jets.shape[0] // settings["num_samples"],
-        return_std=True,
-    )
+    try:
+        w1pm, w1pstd = evaluation.w1p(
+            real_jets,
+            gen_jets,
+            exclude_zeros=True,
+            num_eval_samples=settings["num_samples"],
+            num_batches=real_jets.shape[0] // settings["num_samples"],
+            average_over_features = False,
+            return_std=True,
+        )
+    except TypeError:
+        w1pm, w1pstd = evaluation.w1p(
+            real_jets,
+            gen_jets,
+            exclude_zeros=True,
+            num_eval_samples=settings["num_samples"],
+            num_batches=real_jets.shape[0] // settings["num_samples"],
+            return_std=True,
+        )
+        
     losses["w1p"].append(np.concatenate((w1pm, w1pstd)))
     
     w1mm, w1mstd = evaluation.w1m(
@@ -256,7 +279,7 @@ def eval_save_plot(settings, X_test, gen, disc, G_optimizer, D_optimizer, losses
         )
 
         try:
-            os.remove(settings["losses_path"] + "/" + str(epoch - settings["save_freq"]) + ".pdf")
+            os.remove(settings["losses_path"] + "/" + str(epoch - settings["save_freq"]) + "_eval.pdf")
         except FileNotFoundError:
             print("Couldn't remove previous eval curves")
     
@@ -308,9 +331,9 @@ def save_models(settings, gen, disc, G_optimizer, D_optimizer, epoch):
     torch.save(G_optimizer.state_dict(), settings["models_path"]+"/G_optim" + str(epoch))
 
 def make_directories(settings):
-    settings["models_path"] = settings["output_dir"]+f"/{settings["name"]}/models"
-    settings["losses_path"] = settings["output_dir"]+f"/{settings["name"]}/losses"
-    settings["figs_path"] = settings["output_dir"]+f"/{settings["name"]}/figs"
+    settings["models_path"] = settings["output_dir"]+f"/{settings['name']}/models"
+    settings["losses_path"] = settings["output_dir"]+f"/{settings['name']}/losses"
+    settings["figs_path"] = settings["output_dir"]+f"/{settings['name']}/figs"
     
     try:
         os.mkdir(settings["output_dir"])
@@ -318,7 +341,7 @@ def make_directories(settings):
         pass
     
     try:
-        os.mkdir(settings["output_dir"]+f"/{settings["name"]}")
+        os.mkdir(settings["output_dir"]+f"/{settings['name']}")
     except FileExistsError:
         pass
     

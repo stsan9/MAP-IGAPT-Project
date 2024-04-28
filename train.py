@@ -99,23 +99,23 @@ def train(
                 settings["batch_size"],
             )
             
-            for key in D_losses:
-                losses[key].append(epoch_loss[key]/data_length)
-            losses["G"].append(epoch_loss["G"]/data_length)
-            
-            if epoch % settings["eval_freq"] == 0:
-                run_utils.eval_save_plot(
-                    settings,
-                    X_test,
-                    gen,
-                    disc,
-                    G_optimizer,
-                    D_optimizer,
-                    losses,
-                    epoch
-                )
-            elif epoch % settings["save_freq"] == 0:
-                run_utils.save_models(settings, gen, disc, D_optimizer, G_optimizer, epoch)
+        for key in D_losses:
+            losses[key].append(epoch_loss[key]/data_length)
+        losses["G"].append(epoch_loss["G"]/data_length)
+        
+        if epoch % settings["eval_freq"] == 0:
+            run_utils.eval_save_plot(
+                settings,
+                X_test,
+                gen,
+                disc,
+                G_optimizer,
+                D_optimizer,
+                losses,
+                epoch
+            )
+        elif epoch % settings["save_freq"] == 0:
+            run_utils.save_models(settings, gen, disc, D_optimizer, G_optimizer, epoch)
        
         
 
