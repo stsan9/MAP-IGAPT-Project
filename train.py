@@ -55,18 +55,6 @@ def train(
 ):
     data_length = len(X_train)
     
-    if settings["start_epoch"] == 0:
-        run_utils.eval_save_plot(
-            settings,
-            X_test,
-            gen,
-            disc,
-            G_optimizer,
-            D_optimizer,
-            losses,
-            0,
-        )
-    
     D_losses = ["Dr", "Df", "D"]
     
     epoch_loss = {"G": 0}

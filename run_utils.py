@@ -214,7 +214,7 @@ def eval_save_plot(settings, X_test, gen, disc, G_optimizer, D_optimizer, losses
     
     # Save losses
     for key in losses:
-        np.savetxt(settings["losses_path"]+f"\\{key}.txt", losses[key])
+        np.savetxt(settings["losses_path"]+f"/{key}.txt", losses[key])
     
     # Make necessary plots
     real_masses = jetnet.utils.jet_features(real_jets)["mass"]
@@ -229,7 +229,7 @@ def eval_save_plot(settings, X_test, gen, disc, G_optimizer, D_optimizer, losses
         real_masses,
         gen_masses,
         name= f"{epoch}pm",
-        figs_path=settings["figs_path"] + "\\",
+        figs_path=settings["figs_path"] + "/",
         losses=losses,
         num_particles=settings["num_particles"],
         coords=settings["coords"],
@@ -237,27 +237,27 @@ def eval_save_plot(settings, X_test, gen, disc, G_optimizer, D_optimizer, losses
     )
     
     if len(losses["G"]) > 1:
-        plotting.plot_losses(losses, loss=settings["loss"], name= f"{epoch}pm", losses_path=settings["losses_path"], show=False)
+        plotting.plot_losses(losses, loss=settings["loss"], name= f"{epoch}", losses_path=settings["losses_path"] + "/", show=False)
 
         try:
-            remove(settings["losses_path"] + "\\" + str(epoch - settings["save_epochs"]) + ".pdf")
-        except:
+            os.remove(settings["losses_path"] + "/" + str(epoch - settings["save_freq"]) + ".pdf")
+        except FileNotFoundError:
             print("Couldn't remove previous loss curves")
 
     if len(losses["w1p"]) > 1:
         plotting.plot_eval(
             losses,
             epoch,
-            settings["save_epochs"],
+            settings["save_freq"],
             coords=settings["coords"],
-            name=f"{epoch}pm" + "_eval",
-            losses_path=settings["losses_path"],
+            name=f"{epoch}" + "_eval",
+            losses_path=settings["losses_path"] + "/",
             show=False,
         )
 
         try:
-            remove(settings["losses_path"] + "\\" + str(epoch - settings["save_epochs"]) + ".pdf")
-        except:
+            os.remove(settings["losses_path"] + "/" + str(epoch - settings["save_freq"]) + ".pdf")
+        except FileNotFoundError:
             print("Couldn't remove previous eval curves")
     
 
@@ -301,16 +301,16 @@ def gen_multi_batch(
     return gen_data
 
 def save_models(settings, gen, disc, G_optimizer, D_optimizer, epoch):
-    torch.save(disc.state_dict(), settings["models_path"]+"\\D_" + str(epoch) + ".pt")
-    torch.save(gen.state_dict(), settings["models_path"]+"\\G_" + str(epoch) + ".pt")
+    torch.save(disc.state_dict(), settings["models_path"]+"/D_" + str(epoch) + ".pt")
+    torch.save(gen.state_dict(), settings["models_path"]+"/G_" + str(epoch) + ".pt")
 
-    torch.save(D_optimizer.state_dict(), settings["models_path"]+"\\D_optim" + str(epoch))
-    torch.save(G_optimizer.state_dict(), settings["models_path"]+"\\G_optim" + str(epoch))
+    torch.save(D_optimizer.state_dict(), settings["models_path"]+"/D_optim" + str(epoch))
+    torch.save(G_optimizer.state_dict(), settings["models_path"]+"/G_optim" + str(epoch))
 
 def make_directories(settings):
-    settings["models_path"] = settings["output_dir"]+f"\\{settings["name"]}\\models"
-    settings["losses_path"] = settings["output_dir"]+f"\\{settings["name"]}\\losses"
-    settings["figs_path"] = settings["output_dir"]+f"\\{settings["name"]}\\figs"
+    settings["models_path"] = settings["output_dir"]+f"/{settings["name"]}/models"
+    settings["losses_path"] = settings["output_dir"]+f"/{settings["name"]}/losses"
+    settings["figs_path"] = settings["output_dir"]+f"/{settings["name"]}/figs"
     
     try:
         os.mkdir(settings["output_dir"])
@@ -318,7 +318,7 @@ def make_directories(settings):
         pass
     
     try:
-        os.mkdir(settings["output_dir"]+f"\\{settings["name"]}")
+        os.mkdir(settings["output_dir"]+f"/{settings["name"]}")
     except FileExistsError:
         pass
     
