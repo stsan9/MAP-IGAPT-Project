@@ -85,6 +85,6 @@ class Discriminator(nn.Module):
             sab_out, z = ipab(x, mask, z)
             x = x + sab_out if self.residual else sab_out
         
-        out = self.pma(x, mask, z).squeeze()
+        out = self.pma(x, mask).squeeze()
         
         return torch.sigmoid(self.output_fc(out))

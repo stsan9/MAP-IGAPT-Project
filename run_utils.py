@@ -105,10 +105,10 @@ class SimpleData:
         self.test = JetNet(**data_args, split = "valid")
         # self.test = DataLoader(unloaded_test, batch_size = batch_size, pin_memory= True)
         
-def get_noise(settings, device, noise_std = 0.2):
+def get_noise(settings, run_batch_size, device, noise_std = 0.2):
     dist = Normal(torch.tensor(0.0).to(device), torch.tensor(noise_std).to(device))
     
-    noise = dist.sample((settings["num_samples"], settings["num_particles"], settings["init_noise_dim"]))
+    noise = dist.sample((run_batch_size, settings["num_particles"], settings["init_noise_dim"]))
     
     return noise
 
@@ -174,7 +174,7 @@ def eval_save_plot(settings, X_test, gen, disc, G_optimizer, D_optimizer, losses
     
     # TODO: FIX THISSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
     
-    gen_output = gen_multi_batch(settings, gen, out_device="cpu", detach=True, labels = X_test.jet_data[:settings["num_samples"]])
+    gen_output = gen_multi_batch(settings, gen, out_device="cuda", detach=True, labels = X_test.jet_data[:settings["num_samples"]])
     
     gen_jets = jetnet.utils.gen_jet_corrections(
         X_test.particle_normalisation(gen_output, inverse = True),
@@ -282,7 +282,7 @@ def gen_multi_batch(
 
         if num_samples_in_batch > 0:
     
-            noise = get_noise(settings, device)
+            noise = get_noise(settings, settings["num_samples"], device)
 
             global_noise = (
                 torch.randn(settings["num_samples"], settings["global_noise_dim"]).to(device)

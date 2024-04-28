@@ -15,7 +15,7 @@ class LinearNet(nn.Module):
         
         self.net = nn.ModuleList()
         for i in range(len(layers) - 1):
-            linear = nn.Linear(layers[i], layers[i + 1])
+            linear = nn.Linear(layers[i], layers[i + 1], device = "cuda")
             
             self.net.append(linear)
         
@@ -50,7 +50,7 @@ class MAB(nn.Module):
         num_heads = settings["num_heads"]
         self.activation_function = activation_function
         
-        self.attention = nn.MultiheadAttention(embed_dim=embed_dim, num_heads=num_heads, batch_first=True)
+        self.attention = nn.MultiheadAttention(embed_dim=embed_dim, num_heads=num_heads, batch_first=True, device="cuda")
         self.layer_norm = nn.LayerNorm(embed_dim) if layer_norm else None
         
         self.feedforward = LinearNet(embed_dim, embed_dim, ff_layers, final_linear=final_linear) 
@@ -81,8 +81,8 @@ class PMA(nn.Module):
         self.S = nn.Parameter(torch.empty(1, num_seeds, settings["embed_dim"]))
         nn.init.xavier_uniform_(self.S)
     
-    def forward(self, X):
-        return self.mab(self.S.repeat(X.size(0), 1, 1), X)
+    def forward(self, X, mask):
+        return self.mab(self.S.repeat(X.size(0), 1, 1).to(X.device), X)
 
 class ISAB(nn.Module):
     def __init__(self, m_induce, embed_dim, **mab_args):

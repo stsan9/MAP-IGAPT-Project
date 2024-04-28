@@ -3,6 +3,7 @@ import json
 import run_utils
 import model
 import os
+from tqdm import tqdm 
 
 BCE = torch.nn.BCELoss()
 MSE = torch.nn.MSELoss()
@@ -83,55 +84,55 @@ def train(
         for key in epoch_loss:
             epoch_loss[key] = 0
         
-    for batch_ndx, data in tqdm(
-        enumerate(X_train), total = data_length, mininterval = 0.1, desc = f"Epoch {epoch}"
-    ):
-        labels = (
-            data[1].to(settings["device"])
-        )
-        data = data[0].to(settings["device"])
-        
-        D_loss_dict = train_D(
-            settings,
-            gen,
-            disc,
-            D_optimizer,
-            data,
-            labels,
-            settings["loss"],
-            settings["batch_size"],
-        )
-        
-        for key in D_losses:
-            epoch_loss[key] += D_loss_dict[key]
-        
-        epoch_loss["G"] += train_G(
-            settings,
-            gen,
-            disc,
-            G_optimizer,
-            labels,
-            settings["loss"],
-            settings["batch_size"],
-        )
-        
-        for key in D_losses:
-            losses[key].append(epoch_loss[key]/data_length)
-        losses["G"].append(epoch_loss["G"]/data_length)
-        
-        if epoch % settings["eval_freq"] == 0:
-            run_utils.eval_save_plot(
+        for batch_ndx, data in tqdm(
+            enumerate(X_train), total = data_length, mininterval = 0.1, desc = f"Epoch {epoch}"
+        ):
+            labels = (
+                data[1].to(settings["device"])
+            )
+            data = data[0].to(settings["device"])
+            
+            D_loss_dict = train_D(
                 settings,
-                X_test,
+                gen,
+                disc,
+                D_optimizer,
+                data,
+                labels,
+                settings["loss"],
+                settings["batch_size"],
+            )
+            
+            for key in D_losses:
+                epoch_loss[key] += D_loss_dict[key]
+            
+            epoch_loss["G"] += train_G(
+                settings,
                 gen,
                 disc,
                 G_optimizer,
-                D_optimizer,
-                losses,
-                epoch
+                labels,
+                settings["loss"],
+                settings["batch_size"],
             )
-        elif epoch % settings["save_freq"] == 0:
-            run_utils.save_models(settings, gen, disc, D_optimizer, G_optimizer, epoch)
+            
+            for key in D_losses:
+                losses[key].append(epoch_loss[key]/data_length)
+            losses["G"].append(epoch_loss["G"]/data_length)
+            
+            if epoch % settings["eval_freq"] == 0:
+                run_utils.eval_save_plot(
+                    settings,
+                    X_test,
+                    gen,
+                    disc,
+                    G_optimizer,
+                    D_optimizer,
+                    losses,
+                    epoch
+                )
+            elif epoch % settings["save_freq"] == 0:
+                run_utils.save_models(settings, gen, disc, D_optimizer, G_optimizer, epoch)
        
         
 
@@ -142,16 +143,23 @@ def train_G(
     G_optimizer,
     labels,
     loss,
+    batch_size
 ):
     gen.train()
     G_optimizer.zero_grad()
     
+    run_batch_size = labels.shape[0]
+    
     device = next(gen.parameters()).device
     labels = labels.to(device)
     
-    noise, point_noise = run_utils.get_noise(settings, device)
+    noise = run_utils.get_noise(settings, run_batch_size, device)
     
-    gen_data = gen(noise, labels)
+    global_noise = (
+        torch.randn(run_batch_size, settings["global_noise_dim"]).to(device)
+    )
+    
+    gen_data = gen(noise, labels, global_noise)
     
     disc_fake_output = disc(gen_data, labels)
     
@@ -176,18 +184,24 @@ def train_D(
     D_optimizer.zero_grad()
     gen.eval()
     
+    run_batch_size = data.shape[0]
+    
     D_real_output = disc(data.clone(), labels)
     
     device = next(gen.parameters()).device
     labels = labels.to(device)
     
-    noise, point_noise = run_utils.get_noise(settings, device)
+    noise  = run_utils.get_noise(settings, run_batch_size, device)
+
+    global_noise = (
+        torch.randn(run_batch_size, settings["global_noise_dim"]).to(device)
+    )
     
-    gen_data = gen(noise, labels)
+    gen_data = gen(noise, labels, global_noise)
     
     D_fake_output = disc(gen_data, labels)
     
-    D_loss, D_loss_dict = calc_D_loss(loss, disc, data, gen_data, D_real_output, D_fake_output, batch_size)
+    D_loss, D_loss_dict = calc_D_loss(loss, data, D_real_output, D_fake_output, run_batch_size)
     D_loss.backward()
     D_optimizer.step()
     return D_loss_dict
