@@ -229,7 +229,7 @@ def eval_save_plot(settings, X_test, gen, disc, G_optimizer, D_optimizer, losses
         real_masses,
         gen_masses,
         name= f"{epoch}pm",
-        figs_path=settings["figs_path"],
+        figs_path=settings["figs_path"] + "\\",
         losses=losses,
         num_particles=settings["num_particles"],
         coords=settings["coords"],
