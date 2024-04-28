@@ -6,6 +6,8 @@ from torch.distributions.normal import Normal
 import torch
 import plotting
 from tqdm import tqdm
+import numpy as np
+import os
 
 class JetData:
     def __init__(self, jet_type= ["g","q"], data_dir = "./data", particle_normalisation = True, jet_normalisation = True, seed = 42):
@@ -174,7 +176,7 @@ def eval_save_plot(settings, X_test, gen, disc, G_optimizer, D_optimizer, losses
     
     # TODO: FIX THISSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
     
-    gen_output = gen_multi_batch(settings, gen, out_device="cuda", detach=True, labels = X_test.jet_data[:settings["num_samples"]])
+    gen_output = gen_multi_batch(settings, gen, out_device="cpu", detach=True, labels = X_test.jet_data[:settings["num_samples"]])
     
     gen_jets = jetnet.utils.gen_jet_corrections(
         X_test.particle_normalisation(gen_output, inverse = True),
@@ -197,7 +199,6 @@ def eval_save_plot(settings, X_test, gen, disc, G_optimizer, D_optimizer, losses
         exclude_zeros=True,
         num_eval_samples=settings["num_samples"],
         num_batches=real_jets.shape[0] // settings["num_samples"],
-        average_over_features=False,
         return_std=True,
     )
     losses["w1p"].append(np.concatenate((w1pm, w1pstd)))
@@ -213,7 +214,7 @@ def eval_save_plot(settings, X_test, gen, disc, G_optimizer, D_optimizer, losses
     
     # Save losses
     for key in losses:
-        np.savetxt(f"{settings["losses_path"]}/{key}.txt", losses[key])
+        np.savetxt(settings["losses_path"]+f"\\{key}.txt", losses[key])
     
     # Make necessary plots
     real_masses = jetnet.utils.jet_features(real_jets)["mass"]
@@ -239,7 +240,7 @@ def eval_save_plot(settings, X_test, gen, disc, G_optimizer, D_optimizer, losses
         plotting.plot_losses(losses, loss=settings["loss"], name= f"{epoch}pm", losses_path=settings["losses_path"], show=False)
 
         try:
-            remove(settings["losses_path"] + "/" + str(epoch - settings["save_epochs"]) + ".pdf")
+            remove(settings["losses_path"] + "\\" + str(epoch - settings["save_epochs"]) + ".pdf")
         except:
             print("Couldn't remove previous loss curves")
 
@@ -255,7 +256,7 @@ def eval_save_plot(settings, X_test, gen, disc, G_optimizer, D_optimizer, losses
         )
 
         try:
-            remove(settings["losses_path"] + "/" + str(epoch - settings["save_epochs"]) + ".pdf")
+            remove(settings["losses_path"] + "\\" + str(epoch - settings["save_epochs"]) + ".pdf")
         except:
             print("Couldn't remove previous eval curves")
     
@@ -282,10 +283,10 @@ def gen_multi_batch(
 
         if num_samples_in_batch > 0:
     
-            noise = get_noise(settings, settings["num_samples"], device)
+            noise = get_noise(settings, num_samples_in_batch, device)
 
             global_noise = (
-                torch.randn(settings["num_samples"], settings["global_noise_dim"]).to(device)
+                torch.randn(num_samples_in_batch, settings["global_noise_dim"]).to(device)
             )
     
             gen_temp = gen(noise, labels, global_noise)
@@ -300,11 +301,42 @@ def gen_multi_batch(
     return gen_data
 
 def save_models(settings, gen, disc, G_optimizer, D_optimizer, epoch):
-    torch.save(disc.state_dict(), settings["output_dir"]+ f"\\models\\{settings["name"]}\\D_" + str(epoch) + ".pt")
-    torch.save(gen.state_dict(), settings["output_dir"] + f"\\models\\{settings["name"]}\\G_" + str(epoch) + ".pt")
+    torch.save(disc.state_dict(), settings["models_path"]+"\\D_" + str(epoch) + ".pt")
+    torch.save(gen.state_dict(), settings["models_path"]+"\\G_" + str(epoch) + ".pt")
 
-    torch.save(D_optimizer.state_dict(), settings["output_dir"]+ f"\\models\\{settings["name"]}\\D_optim" + str(epoch))
-    torch.save(G_optimizer.state_dict(), settings["output_dir"]+ f"\\models\\{settings["name"]}\\G_optim" + str(epoch))
+    torch.save(D_optimizer.state_dict(), settings["models_path"]+"\\D_optim" + str(epoch))
+    torch.save(G_optimizer.state_dict(), settings["models_path"]+"\\G_optim" + str(epoch))
+
+def make_directories(settings):
+    settings["models_path"] = settings["output_dir"]+f"\\{settings["name"]}\\models"
+    settings["losses_path"] = settings["output_dir"]+f"\\{settings["name"]}\\losses"
+    settings["figs_path"] = settings["output_dir"]+f"\\{settings["name"]}\\figs"
+    
+    try:
+        os.mkdir(settings["output_dir"])
+    except FileExistsError:
+        pass
+    
+    try:
+        os.mkdir(settings["output_dir"]+f"\\{settings["name"]}")
+    except FileExistsError:
+        pass
+    
+    try:
+        os.mkdir(settings["models_path"])
+    except FileExistsError:
+        pass
+    
+    try:
+        os.mkdir(settings["losses_path"])
+    except FileExistsError:
+        pass
+    
+    try:
+        os.mkdir(settings["figs_path"])
+    except FileExistsError:
+        pass
+    
 # TODO: redo data tests to work with simpledata
 if __name__ == "__main__":
     import numpy as np

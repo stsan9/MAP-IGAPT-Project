@@ -14,12 +14,7 @@ def main():
         settings = json.load(f)
    
     # Make necessary directories
-    try:
-        os.mkdir(settings["output_dir"])
-        os.mkdir(settings["output_dir"]+"\\models")
-        os.mkdir(settings["output_dir"]+f"\\models\\{settings["name"]}")
-    except FileExistsError:
-        pass
+    run_utils.make_directories(settings)
         
     
     device = "cuda" if torch.cuda.is_available() else "cpu"

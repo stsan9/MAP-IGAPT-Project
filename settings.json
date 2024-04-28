@@ -4,7 +4,6 @@
     "jets": "g",
     "data_dir": ".\\data",
     "output_dir": ".\\output",
-    "losses_path": ".\\output\\losses",
     "batch_size": 512,
     "init_noise_dim": 8,
     "gen_sabs": 4,
@@ -30,5 +29,6 @@
     "betas": [0.9, 0.999],
     "num_samples": 50000,
     "residual": false,
-    "loss": "ls"
+    "loss": "ls",
+    "coords": "polarrel"
 }
