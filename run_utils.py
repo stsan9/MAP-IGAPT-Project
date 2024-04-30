@@ -225,10 +225,6 @@ def eval_save_plot(settings, X_test, gen, disc, G_optimizer, D_optimizer, losses
         )
         
     losses["w1p"].append(np.concatenate((w1pm, w1pstd)))
-    
-    # prevent negatives and 0's for pt in w1m calculation
-    gen_jets[..., -1].clip(min=0)
-    gen_jets[..., -1] += 1e-20
 
     w1mm, w1mstd = evaluation.w1m(
         real_jets,
