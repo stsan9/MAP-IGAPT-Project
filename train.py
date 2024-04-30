@@ -27,6 +27,9 @@ def main():
     X_test = data.test
 
     gen, disc = model.Generator(settings), model.Discriminator(settings)
+    # ensure models are on gpu/cpu
+    gen = gen.to(device)
+    disc = disc.to(device)
     
     G_optimizer, D_optimizer = run_utils.optimizers(gen, disc, settings["optimizer"], settings["lrs"], settings["betas"])
     
@@ -133,7 +136,7 @@ def train_G(
     
     run_batch_size = labels.shape[0]
     
-    device = next(gen.parameters()).device
+    device = settings['device']
     labels = labels.to(device)
     
     noise = run_utils.get_noise(settings, run_batch_size, device)
@@ -171,7 +174,7 @@ def train_D(
     
     D_real_output = disc(data.clone(), labels)
     
-    device = next(gen.parameters()).device
+    device = settings['device']
     labels = labels.to(device)
     
     noise  = run_utils.get_noise(settings, run_batch_size, device)

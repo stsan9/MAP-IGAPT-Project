@@ -178,7 +178,7 @@ def eval_save_plot(settings, X_test, gen, disc, G_optimizer, D_optimizer, losses
     gen.eval()
     disc.eval()
     save_models(settings, gen, disc, G_optimizer, D_optimizer, epoch)
-    
+
     real_jets = jetnet.utils.gen_jet_corrections(
         X_test.particle_normalisation(X_test.particle_data[:settings["num_samples"]], inverse = True),
         zero_mask_particles = False,
@@ -225,7 +225,7 @@ def eval_save_plot(settings, X_test, gen, disc, G_optimizer, D_optimizer, losses
         )
         
     losses["w1p"].append(np.concatenate((w1pm, w1pstd)))
-    
+
     w1mm, w1mstd = evaluation.w1m(
         real_jets,
         gen_jets,
