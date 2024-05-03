@@ -34,6 +34,15 @@ class Generator(nn.Module):
     
     def forward(self, x, mask, z):
         # TODO: implement mask
+
+        num_jet_particles = (labels[:, -1] * self.num_particles).int() - 1
+
+        mask = (
+            (x[:, :, 0].argsort(1).argsort(1) <= num_jet_particles.unsqueeze(1))
+            .unsqueeze(2)
+            .float()
+        )
+        
         x = self.noise_net(x)
         
         z = self.global_net(z)
