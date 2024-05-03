@@ -82,6 +82,7 @@ class PMA(nn.Module):
         nn.init.xavier_uniform_(self.S)
     
     def forward(self, X, mask):
+        mask = mask.transpose(-2, -1)
         return self.mab(self.S.repeat(X.size(0), 1, 1).to(X.device), X)
 
 class ISAB(nn.Module):
@@ -94,6 +95,8 @@ class ISAB(nn.Module):
         self.I = nn.Parameter(torch.randn(self.m, embed_dim))
     
     def forward(self, X):
+        if mask is not None:
+            mask = mask.transpose(-2, -1).repeat((1, self.num_inds, 1))
         H = self.mab1(self.I, X)
         return self.mab2(X, H)
 
@@ -106,6 +109,8 @@ class IPAB(nn.Module):
         self.mab2 = MAB(settings)
     
     def forward(self, X, mask, Z):
+        if mask is not None:
+            mask = mask.transpose(-2, -1).repeat((1, self.num_inds, 1))
         Z = self.mab1(Z.unsqueeze(1), X)
         return self.mab2(X, Z), Z.squeeze(1)
 
