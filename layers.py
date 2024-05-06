@@ -1,6 +1,6 @@
 import math
 import torch
-from torch import nn
+from torch import nn, Tensor
 import torch.nn.functional as F
 
 
@@ -47,17 +47,31 @@ class MAB(nn.Module):
         
         super(MAB, self).__init__()
         embed_dim = settings["embed_dim"]
-        num_heads = settings["num_heads"]
+        self.num_heads = settings["num_heads"]
         self.activation_function = activation_function
         
-        self.attention = nn.MultiheadAttention(embed_dim=embed_dim, num_heads=num_heads, batch_first=True, device="cuda")
+        self.attention = nn.MultiheadAttention(embed_dim=embed_dim, num_heads=self.num_heads, batch_first=True, device="cuda")
         self.layer_norm = nn.LayerNorm(embed_dim) if layer_norm else None
         
         self.feedforward = LinearNet(embed_dim, embed_dim, ff_layers, final_linear=final_linear) 
         self.dropout = nn.Dropout(p=dropout)
     
-    def forward(self, X, Y):
-        attention = self.attention(X, Y, Y, need_weights=False)[0]
+    def forward(self, X, Y, y_mask: Tensor = None):
+
+
+
+        
+        if y_mask is not None:
+            # torch.nn.MultiheadAttention needs a mask of shape [batch_size * num_heads, N, N]
+            y_mask = torch.repeat_interleave(y_mask, self.num_heads, dim=0)
+
+
+
+        
+        
+        attention = self.attention(X, Y, Y, y_mask, need_weights=False)[0]
+
+        
         H = X + attention
         
         if self.layer_norm:
@@ -110,7 +124,7 @@ class IPAB(nn.Module):
     
     def forward(self, X, mask, Z):
         if mask is not None:
-            mask = mask.transpose(-2, -1).repeat((1, self.num_inds, 1))
+            mask = mask.transpose(-2, -1).repeat((1, self.num_inds, 1)) #Follow up with num_inds
         Z = self.mab1(Z.unsqueeze(1), X)
         return self.mab2(X, Z), Z.squeeze(1)
 
