@@ -4,7 +4,7 @@
     "jets": "g",
     "data_dir": "./data",
     "output_dir": "/mapganvol/steven/output/",
-    "batch_size": 2048,
+    "batch_size": 8192,
     "init_noise_dim": 8,
     "gen_sabs": 4,
     "disc_sabs": 2,
