@@ -2,11 +2,13 @@ import torch
 from torch import nn
 import torch.nn.functional as F
 import layers
+from run_utils import convert_mask
 
 class Generator(nn.Module):
     def __init__(self, settings):
         super(Generator, self).__init__()
         self.residual = settings["residual"]
+        self.num_particles = settings["num_particles"]
         embed_dim = settings["embed_dim"]
         
         self.noise_net = layers.LinearNet(
@@ -32,8 +34,7 @@ class Generator(nn.Module):
             final_linear= True,
         )
     
-    def forward(self, x, mask, z):
-        # TODO: implement mask
+    def forward(self, x, labels, z):
 
         num_jet_particles = (labels[:, -1] * self.num_particles).int() - 1
 
@@ -48,12 +49,12 @@ class Generator(nn.Module):
         z = self.global_net(z)
         
         for ipab in self.ipabs:
-            sab_out, z = ipab(x, mask, z)
+            sab_out, z = ipab(x, convert_mask(mask), z)
             x = x + sab_out if self.residual else sab_out
         
         x = torch.tanh(self.output_fc(x))
         
-        return x
+        return torch.cat((x, mask - 0.5), dim=2)
     
 class Discriminator(nn.Module):
     def __init__(self, settings, residual = False):
@@ -83,7 +84,10 @@ class Discriminator(nn.Module):
                 final_linear= True
             )
     
-    def forward(self, x, mask):
+    def forward(self, x):
+        mask = x[..., -1:] + 0.5
+        x = x[..., :-1]
+        
         x = self.input_net(x)
         
         z = torch.cat([x.mean(dim=1), x.sum(dim=1)], dim=1)
@@ -91,9 +95,9 @@ class Discriminator(nn.Module):
         z = self.cond_net(z)
         
         for ipab in self.ipabs:
-            sab_out, z = ipab(x, mask, z)
+            sab_out, z = ipab(x, convert_mask(mask), z)
             x = x + sab_out if self.residual else sab_out
         
-        out = self.pma(x, mask).squeeze()
+        out = self.pma(x, convert_mask(mask)).squeeze()
         
         return torch.sigmoid(self.output_fc(out))

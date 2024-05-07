@@ -147,7 +147,7 @@ def train_G(
     
     gen_data = gen(noise, labels, global_noise)
     
-    disc_fake_output = disc(gen_data, labels)
+    disc_fake_output = disc(gen_data)
     
     G_loss = calc_G_loss(loss, disc_fake_output)
     
@@ -172,7 +172,7 @@ def train_D(
     
     run_batch_size = data.shape[0]
     
-    D_real_output = disc(data.clone(), labels)
+    D_real_output = disc(data.clone())
     
     device = settings['device']
     labels = labels.to(device)
@@ -185,7 +185,7 @@ def train_D(
     
     gen_data = gen(noise, labels, global_noise)
     
-    D_fake_output = disc(gen_data, labels)
+    D_fake_output = disc(gen_data)
     
     D_loss, D_loss_dict = calc_D_loss(loss, data, D_real_output, D_fake_output, run_batch_size)
     D_loss.backward()

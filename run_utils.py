@@ -9,6 +9,9 @@ from tqdm import tqdm
 import numpy as np
 import os
 
+def convert_mask(mask):
+    return (1-mask).bool()
+
 class JetData:
     def __init__(self, jet_type= ["g","q"], data_dir = "./data", particle_normalisation = True, jet_normalisation = True, seed = 42):
         '''
@@ -244,7 +247,7 @@ def eval_save_plot(settings, X_test, gen, disc, G_optimizer, D_optimizer, losses
     gen_masses = jetnet.utils.jet_features(gen_jets)["mass"]
     
     plotting.plot_part_feats_jet_mass(
-        "g", #TODO: implement other jet types
+        settings["jets"],
         real_jets,
         gen_jets,
         real_mask,
@@ -312,7 +315,7 @@ def gen_multi_batch(
                 torch.randn(num_samples_in_batch, settings["global_noise_dim"]).to(device)
             )
     
-            gen_temp = gen(noise, labels, global_noise)
+            gen_temp = gen(noise, labels[(i * settings["batch_size"]) : (i * settings["batch_size"]) + num_samples_in_batch], global_noise)
     
             if detach:
                 gen_temp = gen_temp.detach()

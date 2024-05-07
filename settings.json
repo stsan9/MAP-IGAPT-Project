@@ -19,7 +19,7 @@
     "epochs": 6000, 
     "save_freq": 5, 
     "eval_freq": 5,
-    "gen_out_dim": 4,
+    "gen_out_dim": 3,
     "noise_dim": 8,
     "global_noise_dim": 8,
     "global_feat_dim": 8,

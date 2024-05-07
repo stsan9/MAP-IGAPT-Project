@@ -57,19 +57,11 @@ class MAB(nn.Module):
         self.dropout = nn.Dropout(p=dropout)
     
     def forward(self, X, Y, y_mask: Tensor = None):
-
-
-
-        
         if y_mask is not None:
             # torch.nn.MultiheadAttention needs a mask of shape [batch_size * num_heads, N, N]
             y_mask = torch.repeat_interleave(y_mask, self.num_heads, dim=0)
 
-
-
-        
-        
-        attention = self.attention(X, Y, Y, y_mask, need_weights=False)[0]
+        attention = self.attention(X, Y, Y, attn_mask = y_mask, need_weights=False)[0]
 
         
         H = X + attention
@@ -97,7 +89,7 @@ class PMA(nn.Module):
     
     def forward(self, X, mask):
         mask = mask.transpose(-2, -1)
-        return self.mab(self.S.repeat(X.size(0), 1, 1).to(X.device), X)
+        return self.mab(self.S.repeat(X.size(0), 1, 1), X, mask)
 
 class ISAB(nn.Module):
     def __init__(self, m_induce, embed_dim, **mab_args):
@@ -111,7 +103,7 @@ class ISAB(nn.Module):
     def forward(self, X):
         if mask is not None:
             mask = mask.transpose(-2, -1).repeat((1, self.num_inds, 1))
-        H = self.mab1(self.I, X)
+        H = self.mab1(self.I, X, mask)
         return self.mab2(X, H)
 
 class IPAB(nn.Module):
@@ -124,8 +116,8 @@ class IPAB(nn.Module):
     
     def forward(self, X, mask, Z):
         if mask is not None:
-            mask = mask.transpose(-2, -1).repeat((1, self.num_inds, 1)) #Follow up with num_inds
-        Z = self.mab1(Z.unsqueeze(1), X)
+            mask = mask.transpose(-2, -1)
+        Z = self.mab1(Z.unsqueeze(1), X, mask)
         return self.mab2(X, Z), Z.squeeze(1)
 
 if __name__ == "__main__":
