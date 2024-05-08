@@ -354,6 +354,9 @@ def plot_losses(losses, loss="lg", name=None, losses_path=None, show=False):
     plt.ylabel("Loss")
     plt.legend()
 
+    ax = plt.gca()
+    ax.set_yscale('log')
+
     if losses_path is not None and name is not None:
         plt.savefig(losses_path + name + ".pdf", bbox_inches="tight")
 
