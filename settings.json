@@ -3,7 +3,7 @@
     "num_particles": 30,
     "jets": "g",
     "data_dir": "./data",
-    "output_dir": "./output",
+    "output_dir": "/mapganvol/output/",
     "batch_size": 512,
     "init_noise_dim": 8,
     "gen_sabs": 4,
